@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b0d11">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Viaje">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Viaje Familiar v5.0 Candidata</title>
+
+
+
+
+
+
+
+
+
+<link rel="stylesheet" href="./app.css?v=5.0.1">
+</head>
+<body><div class="app" id="app">
+<div class="saveError hidden" id="saveError" role="alert">No se pudieron guardar los cambios. Exporta un respaldo y revisa el espacio disponible del navegador.</div>
+<header class="top"><div><div class="title">Viaje familiar por carretera</div><div class="sub" id="journeyState">No iniciado</div></div><div class="connectionBadge" id="connectionBadge">● Comprobando</div></header>
+<div class="days globalDays"><button class="day active" data-day="1">Día 1 · Navojoa</button><button class="day" data-day="2">Día 2 · Tepic</button><button class="day" data-day="3">Día 3 · Tequila</button></div>
+<div class="globalSimulation hidden" id="globalSimulation"><b>🧪 SIMULADOR ACTIVO</b><button class="btn danger" id="globalSimExit">Salir y recuperar viaje real</button></div>
+
+<main>
+<section id="routePanel">
+<div class="card smartHome" id="smartHome">
+  <div class="eyebrow">RESUMEN INTELIGENTE</div>
+  <div class="smartHomeGrid">
+    <div><span class="muted">SIGUIENTE</span><b id="smartNext">—</b></div>
+    <div><span class="muted">ETA</span><b id="smartEta">—</b></div>
+    <div><span class="muted">COMBUSTIBLE AL LLEGAR</span><b id="smartFuel">—</b></div>
+    <div><span class="muted">DIFERENCIA VS PLAN</span><b id="smartDelay">—</b></div>
+  </div>
+  <div class="limitBanner good" id="smartPlanB">Calculando plan de jornada…</div>
+  <div class="buttonRow"><button class="btn primary" id="smartNavigate">Navegar</button><button class="btn" id="changePlans">Cambio de planes</button></div>
+</div>
+
+<div class="card v50Assistant" id="v50Assistant">
+  <div class="eyebrow">ASISTENTE DE VIAJE</div>
+  <div class="assistantGrid"><div><span class="muted">SEGURIDAD</span><b id="safetyScore">—</b></div><div><span class="muted">LLEGADA FINAL</span><b id="finalArrival">—</b></div></div>
+  <div class="limitBanner good" id="assistantAdvice">Preparando recomendación…</div>
+  <div class="buttonRow"><button class="btn primary" id="canContinue">¿Puedo continuar?</button><button class="btn" id="scenario30">+30 min</button><button class="btn" id="scenario60">+1 h</button></div>
+  <div class="offlineNote" id="scenarioResult">Los escenarios no modifican el viaje.</div>
+</div>
+<div class="card morningCard" id="morningCard">
+  <b>☀️ Antes de salir</b><div class="muted" id="morningSummary">Preparando resumen del día…</div>
+  <div class="morningChecks" id="morningChecks"></div>
+</div>
+<div class="card hidden" id="changePlansCard">
+  <b>🔀 Cambio de planes</b><div class="muted">Elige qué ocurrió. La app conservará el progreso y recalculará lo que sigue.</div>
+  <div class="changeGrid"><button class="btn warn" id="planStay">🌙 Quedarme aquí</button><button class="btn" id="planSkip">⏭ Saltar próxima parada</button><button class="btn" id="planAddStop">➕ Agregar parada/descanso</button><button class="btn" id="planResume">↩ Regresar a ruta</button></div>
+</div>
+<div class="panel" id="normalHero">
+<div class="eyebrow">PRÓXIMO PUNTO</div><div class="heroName" id="nextPoint"></div><div class="eta" id="eta"></div><div class="muted" id="action"></div>
+<div class="row"><span class="pill" id="status"></span><span class="pill" id="base"></span></div><div class="journeySignal" id="journeySignal"><b id="journeySignalTitle">Estado de jornada</b><span id="journeySignalText">Calculando…</span></div><div class="predictiveFuel" id="predictiveFuel">⛽ Calculando combustible al siguiente punto…</div>
+<div class="prep" id="fuelSafety"></div>
+<button class="compactFuel" id="openFuel" type="button"><span>⛽ Combustible<br><span class="muted" id="fuelCompactText">83.3 L · 500 km seguros</span></span><b id="fuelCompactPct">100%</b></button>
+<div class="fuelGauge" id="fuelGauge">
+  <div class="fuelGaugeHead">
+    <div><div class="fuelGaugeTitle">⛽ Combustible estimado</div><div class="muted" id="fuelGaugeSub">Sincronizado con la planeación</div></div>
+    <div class="fuelGaugePct" id="fuelGaugePct">100%</div>
+  </div>
+  <div class="fuelBar"><div class="fuelFill" id="fuelFill"></div></div>
+  <div class="fuelMetrics">
+    <div class="fuelMetric"><div class="k">LITROS EST.</div><div class="v" id="fuelLiters">83.3 L</div></div>
+    <div class="fuelMetric"><div class="k">AUTONOMÍA SEGURA</div><div class="v" id="fuelSafeKm">500 km</div></div>
+    <div class="fuelMetric"><div class="k">CONSUMO AJUSTADO</div><div class="v" id="fuelKmL">8.0 km/L</div></div>
+  </div>
+  <div class="fuelQuick">
+    <button class="btn primary" id="fuelFull">Llené tanque</button>
+    <button class="btn" data-fuelpct="75">¾</button>
+    <button class="btn" data-fuelpct="50">½</button>
+    <button class="btn" data-fuelpct="25">¼</button>
+    <button class="btn" data-fuelpct="12">Reserva</button>
+  </div>
+  <div class="fuelManual"><input id="fuelPctInput" type="number" min="0" max="100" step="1" placeholder="% real del tablero"><button class="btn" id="fuelPctApply">Ajustar %</button></div><div class="realFuelBox"><b>Registro real de carga</b><div class="grid3"><input id="fillOdo" type="number" min="0" step="1" placeholder="Odómetro km"><input id="fillLiters" type="number" min="0" step="0.01" placeholder="Litros"><input id="fillPrice" type="number" min="0" step="0.01" placeholder="$ / litro"></div><button class="btn primary" id="saveRealFill" style="width:100%;margin-top:8px">Guardar carga y calcular rendimiento</button><div class="muted" id="realFuelStats">Aún no hay cargas reales suficientes para calcular rendimiento.</div></div>
+  <div class="fuelAlert good" id="fuelAlert">Planeación inicial: 8 km/L.</div>
+</div>
+
+<div class="prep hidden" id="nightAdvice"></div>
+<div class="card overnightCard hidden" id="overnightCard"><b>🌙 Jornada terminada aquí</b><div class="muted" id="overnightWhere"></div><label style="display:block;margin-top:10px">Hora planeada para continuar<input id="overnightStartTime" type="time" value="06:00"></label><div class="overnightPlan" id="overnightPlan"></div><button class="btn primary" id="continueTomorrow" style="width:100%;margin-top:10px">Continuar viaje desde aquí</button><button class="btn" id="cancelOvernight" style="width:100%;margin-top:8px">Cancelar cierre de jornada</button></div>
+<div class="actions"><button class="btn primary" id="startJourney">Iniciar día</button><button class="btn" id="roadToggle">Modo carretera</button><button class="btn" id="pauseJourney">Pausar viaje</button><button class="btn hidden" id="resumeJourney">Reanudar</button><button class="btn warn" id="endDayHere">🌙 Terminar jornada aquí</button><button class="btn hidden" id="undoAction">↩ Deshacer última acción</button><button class="btn full" id="nextRoute">Continuar al siguiente día</button></div>
+</div>
+
+<div class="panel hidden roadCard" id="roadPanel">
+<div class="simulationBanner hidden" id="simulationBanner">🧪 SIMULADOR ACTIVO · Nada de esto modifica el viaje real</div>
+<div class="eyebrow">🛣️ MODO CARRETERA · ANTI-DISTRACCIÓN</div><div class="segmentBar"><b id="segmentStatus">Ruta completa</b><span id="wakeStatus" class="muted">Pantalla normal</span></div><div class="heroName" id="roadPoint"></div>
+<div class="roadGrid"><div class="stat"><span class="muted">DISTANCIA</span><b id="roadKm">—</b></div><div class="stat"><span class="muted">MANEJO</span><b id="roadMin">—</b></div><div class="stat wide"><span class="muted">DESPUÉS</span><b id="roadAfter">—</b></div></div>
+<div class="prep" id="roadStatus"></div><div class="prep" id="roadPrep"></div>
+<div class="driveStrip"><span id="roadDrivingTime">🚗 0 min</span><span id="roadStoppedTime">⏸ 0 min</span><span id="roadAvgSpeed">Promedio —</span></div><div class="roadBtns"><button class="btn primary" id="arriveBtn">Llegamos</button><button class="btn" id="departBtn" disabled>Salimos</button></div><button class="btn warn" id="roadEndDay" style="width:100%;margin-top:8px">🌙 Terminar jornada aquí</button><button class="btn full hidden" id="roadUndo" style="margin-top:8px">↩ Deshacer</button>
+<div class="card" style="margin-top:10px">
+<b>🗺️ Navegación</b>
+<div class="muted" id="gpsStatus"></div>
+<div class="gpsLive warn" id="gpsLive" role="status" aria-live="polite">GPS del teléfono pendiente.</div>
+<div class="gpsMetric" id="gpsDistance">Distancia GPS al siguiente punto: pendiente</div>
+<div class="gpsMetric" id="etaSyncNote">ETA basada en la planeación.</div><div class="arrivalPrompt hidden" id="arrivalPrompt"><b id="arrivalPromptText">Parece que llegaste.</b><div class="buttonRow"><button class="btn primary" id="confirmGpsArrival">Confirmar llegada</button><button class="btn" id="dismissGpsArrival">Ahora no</button></div></div>
+<iframe class="map" id="gpsMap" title="Mapa de navegación" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+<div class="gpsActions3">
+  <button class="btn primary" id="navBtn">Navegar siguiente</button>
+  <button class="btn" id="gpsBtn">📍 Mi ubicación</button>
+  <button class="btn" id="etaSyncBtn">⏱️ Sincronizar ETA de Maps</button>
+  <button class="btn" id="fullRouteBtn">Ruta completa</button>
+  <button class="btn" id="savePointLocation">📌 Guardar ubicación de este punto</button>
+  <button class="btn" id="copilotToggle">👥 Activar copiloto</button>
+  <a class="btn callBtn danger" href="tel:911">🆘 Emergencia 911</a>
+</div>
+<div class="note roadNavNote">“Navegar siguiente” usa el punto exacto confirmado o la dirección de la parada. “Ruta completa” abre los enlaces oficiales aprobados de cada día; el Día 1 cambia automáticamente de tramo en Los Arrieros. Las casetas aparecen en el itinerario, pero no se fuerzan como destinos para evitar desvíos.</div>
+</div>
+<div class="simActions hidden" id="simActions"><button class="btn primary" id="simAdvance">⏭ Avanzar prueba</button><button class="btn" id="simDelay">+30 min de retraso</button><button class="btn danger full" id="simExit">Salir sin guardar cambios</button></div>
+<button class="btn full" id="roadExit" style="margin-top:10px">Cerrar modo carretera</button>
+</div>
+
+<div class="section" id="timelineTitle">Próximos puntos</div><div class="timeline timelineCompact" id="timeline"></div><button class="btn full" id="toggleTimeline" style="margin-top:8px">Ver itinerario completo</button><div class="footer" id="routeFooter">Planeación: 8 km/L · máximo 100 km/h · objetivo terminar 18:00 · límite 19:00</div>
+<div class="card tripDashboard" id="tripDashboard"><b>📈 Viaje real</b><div class="summary" id="tripStats"></div></div>
+<div class="card travelLogCard"><b>🧾 Bitácora automática</b><div id="travelLog" class="travelLog"></div><button class="btn" id="copyLog" style="width:100%;margin-top:8px">Copiar bitácora</button></div>
+<div class="card daySummary hidden" id="daySummary"><b>📊 Resumen de la jornada</b><div class="summary" id="daySummaryGrid"></div><button class="btn" id="copySummary" style="width:100%">Copiar resumen</button></div>
+</section>
+
+<section id="fuelPanel" class="hidden"><button class="btn" id="backFromFuel" style="width:100%;margin-bottom:8px">← Volver a Más</button><div class="section" style="margin-top:0">Combustible del día</div><div class="section">Paradas planeadas</div><div id="fuelList" class="timeline"></div></section>
+<section id="emergencyPanel" class="hidden"><button class="btn" id="backFromSafety" style="width:100%;margin-bottom:8px">← Volver a Más</button><div class="section" style="margin-top:0">Seguridad y ayuda</div><div class="callGrid"><a class="btn callBtn danger" href="tel:911"><b>911</b><br><span class="muted">Emergencias</span></a><a class="btn callBtn" href="tel:074"><b>074</b><br><span class="muted">CAPUFE</span></a><a class="btn callBtn" href="tel:078"><b>078</b><br><span class="muted">Ángeles Verdes · 08:00–20:00</span></a><a class="btn callBtn" href="tel:088"><b>088</b><br><span class="muted">Guardia Nacional</span></a></div><div class="card" style="margin-top:10px"><b>📍 Mi ubicación</b><div class="muted" id="safetyGps">Aún no disponible</div><button class="btn" id="safetyGpsRefresh" style="width:100%;margin-top:8px">Actualizar GPS</button><div class="buttonRow"><button class="btn" id="copyGps">Copiar</button><button class="btn primary" id="shareGps">Compartir</button></div></div><div class="card hidden" id="personalHelp" style="margin-top:10px"><b>Contactos configurados</b><div class="muted" id="emergencyContactDisplay"></div><a class="btn callBtn" id="emergencyCall" href="#">Llamar contacto</a><div class="muted" id="insurerContactDisplay" style="margin-top:8px"></div><a class="btn callBtn" id="insurerCall" href="#">Llamar asistencia</a></div><div class="card" style="margin-top:10px"><b>Reglas de seguridad</b><div class="muted">No recuperar retrasos aumentando la velocidad. Si la ETA rebasa 19:00, terminar la jornada. En una emergencia, detente en un lugar seguro antes de usar el teléfono.</div></div></section>
+<section id="morePanel" class="hidden"><div class="moreTabs"><button class="day active" data-more="check">Checklist</button><button class="day" data-more="expenses">Gastos</button><button class="day" data-more="travel">Viaje+</button><button class="day" data-more="settings">Ajustes</button></div>
+<div id="checkPanel"><div class="summary"><div class="stat"><span class="muted">LISTOS</span><b id="checkDone">0/0</b></div><div class="stat"><span class="muted">CRÍTICOS</span><b id="checkCritical">Pendientes</b></div><div class="stat wide"><span class="muted">DÍA</span><b id="checkDay">1</b></div></div><div class="section" id="checkTitle"></div><div id="checkList" class="timeline"></div></div>
+<div id="expensesPanel" class="hidden"><div class="card"><div class="grid2"><label>Categoría<select id="expenseCat"><option>Gasolina</option><option>Caseta</option><option>Comida</option><option>Hospedaje</option><option>Otro</option></select></label><label>Monto<input id="expenseAmount" type="number" min="0" inputmode="decimal"></label></div><div class="grid2"><label>Litros (opcional)<input id="expenseLiters" type="number" min="0" step="0.1" inputmode="decimal"></label><label>Nota<input id="expenseNote"></label></div><button class="btn primary" id="addExpense" style="width:100%;margin-top:8px">Agregar gasto</button></div><div class="section">Presupuesto del viaje</div><div class="card budgetGrid" id="budgetEditor"><label>Gasolina<input class="budgetInput" data-budget="Gasolina" type="number" min="0" inputmode="decimal"></label><label>Casetas<input class="budgetInput" data-budget="Caseta" type="number" min="0" inputmode="decimal"></label><label>Comida<input class="budgetInput" data-budget="Comida" type="number" min="0" inputmode="decimal"></label><label>Hospedaje<input class="budgetInput" data-budget="Hospedaje" type="number" min="0" inputmode="decimal"></label><label>Otros<input class="budgetInput" data-budget="Otro" type="number" min="0" inputmode="decimal"></label><button class="btn primary full" id="saveBudget">Guardar presupuesto</button></div><div class="summary"><div class="stat"><span class="muted">PLANEADO</span><b id="budgetTotal">$0</b></div><div class="stat"><span class="muted">GASTADO</span><b id="expenseTotal">$0</b></div><div class="stat"><span class="muted">DIFERENCIA</span><b id="budgetDiff">$0</b></div><div class="stat"><span class="muted">TOTAL DÍA</span><b id="expenseDayTotal">$0</b></div><div class="stat wide"><span class="muted">REGISTROS</span><b id="expenseCount">0</b></div></div><div class="card"><div id="expenseByCategory" class="budgetCompare"></div></div><div class="card"><div id="expenseList"></div></div><div class="card"><b>🗑️ Papelera temporal</b><div class="muted" id="trashStatus">Sin elementos eliminados.</div><button class="btn" id="restoreTrash" style="width:100%;margin-top:8px">Restaurar último gasto eliminado</button></div></div>
+<div id="travelPanel" class="hidden">
+<div class="section">Centro de estado</div>
+<div class="card"><div class="summary enhancedStats"><div class="stat"><span class="muted">DATOS</span><b id="healthData">—</b></div><div class="stat"><span class="muted">GPS</span><b id="healthGps">—</b></div><div class="stat"><span class="muted">OFFLINE</span><b id="healthOffline">—</b></div><div class="stat"><span class="muted">RESPALDO</span><b id="healthBackup">—</b></div></div><div class="offlineNote" id="healthSaved">Último guardado: —</div></div>
+<div class="section">Estado del viaje</div>
+<div class="card"><div class="summary enhancedStats"><div class="stat"><span class="muted">CONDUCIENDO</span><b id="driveTimeReal">0 min</b></div><div class="stat"><span class="muted">DETENIDO</span><b id="stopTimeReal">0 min</b></div><div class="stat"><span class="muted">PROMEDIO REAL</span><b id="avgSpeedReal">—</b></div><div class="stat"><span class="muted">SEÑAL</span><b id="routeHealth">Sin GPS</b></div></div><div class="buttonRow"><button class="btn primary" id="imHere">📍 Estoy aquí</button><button class="btn" id="shareTripStatus">Compartir estado</button><button class="btn" id="toggleDriveLock">🔒 Bloqueo carretera</button></div><div class="offlineNote" id="deviationStatus">La detección de desvío se activa cuando hay GPS y coordenadas suficientes.</div></div>
+<div class="section">Parada actual / próxima</div>
+<div class="card"><label>Nota de la parada<textarea id="stopNote" rows="3" placeholder="Ej. baños limpios, buena gasolina, evitar de noche…"></textarea></label><div class="buttonRow"><button class="btn" id="saveStopNote">Guardar nota</button><button class="btn" id="toggleFavorite">☆ Marcar favorita</button></div><div id="favoritesList" class="travelLog"></div></div>
+<div class="section">Historial y multi-viaje</div>
+<div class="card"><label>Nombre de este viaje<input id="tripName" type="text" placeholder="Ej. Los Algodones → Tequila · Septiembre 2026"></label><div class="buttonRow"><button class="btn primary" id="archiveTrip">Guardar viaje en historial</button><button class="btn" id="duplicateTrip">Duplicar como viaje nuevo</button></div><div id="tripHistory" class="travelLog"></div></div>
+<div class="section">Vehículo y mantenimiento</div>
+<div class="card settingsGrid"><label>Odómetro al iniciar<input id="maintStartOdo" type="number" min="0" step="1" placeholder="km"></label><label>Próximo servicio<input id="maintNextService" type="number" min="0" step="1" placeholder="km"></label><label>Notas de mantenimiento<textarea id="maintNotes" rows="3" placeholder="Aceite, llantas, refrigerante, batería…"></textarea></label><button class="btn primary" id="saveMaintenance">Guardar estado del vehículo</button><div class="offlineNote" id="maintenanceStatus"></div></div>
+<div class="section">Resumen y portabilidad</div>
+<div class="card"><div class="buttonRow"><button class="btn" id="exportTripReport">Exportar resumen del viaje</button><button class="btn" id="copyTripCompare">Copiar planeado vs real</button></div><div class="offlineNote">Tus respaldos JSON siguen disponibles en Ajustes. El historial de viajes se guarda localmente y también entra en el respaldo general.</div></div>
+</div><div id="fuelMorePanel" class="hidden"><div class="card"><b>⛽ Gasolina</b><div class="muted">Planeación, autonomía, cargas obligatorias y rendimiento real.</div><button class="btn primary" id="openFuelMore" style="width:100%;margin-top:8px">Abrir panel de gasolina</button></div></div><div id="safetyMorePanel" class="hidden"><div class="card"><b>🛡️ Seguridad y emergencia</b><div class="muted">GPS, ubicación para compartir, 911, CAPUFE, Ángeles Verdes y contactos personales.</div><button class="btn danger" id="openSafetyMore" style="width:100%;margin-top:8px">Abrir panel de seguridad</button></div></div><div id="settingsPanel" class="hidden"><div class="section">Preparación inicial</div><div class="card" id="onboardingCard"><b>✅ Puesta a punto</b><div class="muted" id="onboardingText">Comprueba que el teléfono está listo antes del viaje.</div><div class="buttonRow"><button class="btn primary" id="onboardingTest">Comprobar todo</button><button class="btn" id="onboardingDone">Marcar listo</button></div></div><div class="section">Prueba antes de viajar</div><div class="card"><b>🧪 Simulador seguro</b><div class="muted">Prueba llegadas, salidas, retrasos, tramos y límite de jornada sin modificar el viaje real.</div><button class="btn primary" id="startSimulation" style="width:100%;margin-top:8px">Iniciar simulador</button></div><div class="card" style="margin-top:8px"><b>🩺 Diagnóstico del teléfono</b><div class="muted">Comprueba GPS, guardado, conexión, voz, vibración, pantalla activa e instalación.</div><button class="btn" id="runDiagnostic" style="width:100%;margin-top:8px">Ejecutar diagnóstico</button><div class="diagnosticList" id="diagnosticList"></div></div><div class="section">Ajustes</div><div class="card settingsGrid"><label>Aplicación de mapas<select id="mapPreference"><option value="google">Google Maps</option><option value="apple">Apple Maps</option></select></label><label class="switchRow"><span><b>Llegada por proximidad</b><br><span class="muted">Pregunta antes de registrar</span></span><input id="proximityEnabled" type="checkbox" checked></label><label>Radio de llegada<select id="proximityRadius"><option value="250">250 m</option><option value="350">350 m</option><option value="500">500 m</option></select></label><label class="switchRow"><span><b>Avisos por voz/vibración</b><br><span class="muted">Solo mensajes importantes</span></span><input id="voiceAlerts" type="checkbox" checked></label><label class="switchRow"><span><b>Mantener pantalla activa</b><br><span class="muted">Solo en Modo carretera</span></span><input id="keepAwake" type="checkbox" checked></label><label>Contacto de emergencia<input id="emergencyContact" type="text" placeholder="Nombre y teléfono"></label><label>Aseguradora / asistencia<input id="insurerContact" type="text" placeholder="Compañía y teléfono"></label><label>Vehículo<input id="vehicleInfo" type="text" value="Buick Enclave 2013 FWD"></label><button class="btn primary" id="saveSettings">Guardar ajustes</button></div><div class="section">Protección y recuperación</div><div class="card settingsGrid"><label class="switchRow"><span><b>Congelar itinerario oficial</b><br><span class="muted">Evita cambios accidentales en ubicaciones de la ruta</span></span><input id="routeLocked" type="checkbox" checked></label><button class="btn primary" id="emergencyRestore">Restaurar último estado correcto</button><button class="btn" id="copyErrorReport">Copiar reporte de diagnóstico</button><div class="offlineNote" id="repairStatus">Autorreparación lista.</div></div><div class="section">Respaldo de datos</div><select class="backupSelect" id="backupSelect" aria-label="Seleccionar respaldo automático"></select><div class="buttonRow"><button class="btn" id="exportData">Exportar respaldo</button><button class="btn" id="importData">Importar respaldo</button><button class="btn" id="restoreAutoBackup">Restaurar respaldo elegido</button></div><div class="offlineNote" id="backupStatus">Todavía no hay respaldo automático.</div><div class="offlineNote" id="storageStatus">Guardado redundante activo.</div><div class="offlineNote">Los respaldos automáticos viven en este dispositivo. Exporta también un archivo para protegerte si borras los datos del navegador o pierdes el teléfono.</div><input class="hidden" id="importFile" type="file" accept="application/json"><div class="section">Reinicio</div><button class="btn" id="resetDay" style="width:100%">Reiniciar solamente este día</button><button class="btn danger" id="resetTrip" style="width:100%;margin-top:8px">Borrar todos los datos del viaje</button><div class="offlineNote">La ruta y el progreso funcionan sin conexión después de instalar la app. Los mapas, llamadas y GPS dependen del teléfono, permisos y conectividad disponible.</div></div></section>
+<div class="section">Llegada / resumen final</div><div class="card" id="finalTripCard"><b>🏁 Resumen del viaje</b><div class="muted" id="finalTripSummary">Se completará conforme avances.</div></div><div class="footer">Versión 5.0.1 OFICIAL · Rutas oficiales preservadas · versión estable para uso diario</div>
+</main></div><nav class="bottomNav three" aria-label="Navegación principal"><button class="tab active" data-tab="route"><span class="tabIcon">⌂</span>Inicio</button><button class="tab" data-tab="roadQuick"><span class="tabIcon">🛣️</span>Carretera</button><button class="tab" data-tab="more"><span class="tabIcon">•••</span>Más</button></nav>
+
+<script src="./app.js?v=5.0.1"></script></body></html>
