@@ -57,3 +57,9 @@ body{padding-bottom:calc(76px + var(--safe-bottom))}.top{padding-top:calc(7px + 
 .road #navBtn,.road #gpsBtn,.road .callBtn.danger{min-height:58px;font-size:1rem}
 .road #roadExit{min-height:58px}
 @media(max-width:520px){.roadActionRow{grid-template-columns:1fr}.road #gpsMap{height:160px}}
+
+/* v5.0.3 · Carretera tipo panel: solo controles esenciales */
+body.roadMode .bottomNav,body.roadMode #finalTripTitle,body.roadMode #finalTripCard,body.roadMode .footer{display:none!important}
+body.roadMode{padding-bottom:var(--safe-bottom)}
+body.roadMode .app{padding-bottom:calc(16px + var(--safe-bottom))}
+body.roadMode #roadPanel{margin-bottom:0}
