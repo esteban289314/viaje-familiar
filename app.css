@@ -63,3 +63,24 @@ body.roadMode .bottomNav,body.roadMode #finalTripTitle,body.roadMode #finalTripC
 body.roadMode{padding-bottom:var(--safe-bottom)}
 body.roadMode .app{padding-bottom:calc(16px + var(--safe-bottom))}
 body.roadMode #roadPanel{margin-bottom:0}
+
+/* v5.0.4 · Modo Carretera minimalista */
+body.roadMode #roadPanel{padding:14px}
+body.roadMode #roadPanel>.eyebrow{font-size:.78rem}
+body.roadMode #roadPoint{font-size:2.15rem;margin:8px 0 12px}
+body.roadMode .roadGrid{grid-template-columns:1fr 1fr;gap:9px}
+body.roadMode .roadGrid .wide{grid-column:1/-1}
+body.roadMode #roadPrep,body.roadMode .driveStrip{display:none!important}
+body.roadMode #roadStatus{font-size:1rem;font-weight:900;margin:11px 0}
+body.roadMode .roadNavPrimary{width:100%;min-height:78px;font-size:1.35rem;margin-top:12px;background:#0b73d9;border-color:#2588e8}
+body.roadMode .roadBtns{grid-template-columns:1fr 1fr;gap:10px}
+body.roadMode .roadBtns button{min-height:78px!important;font-size:1.15rem!important}
+body.roadMode #arriveBtn{background:#087b31;border-color:#159447}
+body.roadMode #departBtn:not(:disabled){background:#b75b00;border-color:#dc7817}
+body.roadMode .roadEmergency{display:flex;align-items:center;justify-content:center;text-decoration:none;width:100%;min-height:52px;margin-top:10px;box-sizing:border-box;font-weight:900}
+body.roadMode .roadMore{margin-top:12px;border:1px solid var(--border);border-radius:13px;background:#151922;overflow:hidden}
+body.roadMode .roadMore>summary{list-style:none;cursor:pointer;padding:15px;text-align:center;font-weight:900;font-size:1rem}
+body.roadMode .roadMore>summary::-webkit-details-marker{display:none}
+body.roadMode .roadMoreBody{padding:0 10px 10px}
+body.roadMode #roadExit{min-height:52px;margin-top:12px!important}
+@media(max-width:520px){body.roadMode #roadPoint{font-size:2rem}body.roadMode .roadNavPrimary{min-height:74px}body.roadMode .roadBtns button{min-height:74px!important}}
