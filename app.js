@@ -80,7 +80,7 @@ const BACKUP_KEY=KEY+'_automatic',MAX_BACKUPS=12;
 function cleanStateCopy(source=state){const copy=JSON.parse(JSON.stringify(source));copy.simulation={active:false,original:null};copy.copilot=false;copy.road=false;return copy}
 function exportableState(){return state.simulation?.active&&state.simulation?.original?cleanStateCopy(state.simulation.original):cleanStateCopy()}
 function readAutoBackups(){try{const raw=JSON.parse(localStorage.getItem(BACKUP_KEY));const list=Array.isArray(raw)?raw:(raw?.state?[raw]:[]);return list.filter(b=>b?.state&&Number.isFinite(Number(b.ts))).sort((a,b)=>b.ts-a.ts).slice(0,MAX_BACKUPS)}catch(e){return []}}
-function saveAutoBackup(reason,source=state){if(state.simulation?.active&&source===state)return false;try{const list=readAutoBackups();list.unshift({version:'5.0.5 OFICIAL',reason:String(reason||'Respaldo').slice(0,160),ts:Date.now(),state:cleanStateCopy(source)});localStorage.setItem(BACKUP_KEY,JSON.stringify(list.slice(0,MAX_BACKUPS)));renderBackupStatus();return true}catch(e){q('#saveError')?.classList.remove('hidden');return false}}
+function saveAutoBackup(reason,source=state){if(state.simulation?.active&&source===state)return false;try{const list=readAutoBackups();list.unshift({version:'5.0.6 OFICIAL',reason:String(reason||'Respaldo').slice(0,160),ts:Date.now(),state:cleanStateCopy(source)});localStorage.setItem(BACKUP_KEY,JSON.stringify(list.slice(0,MAX_BACKUPS)));renderBackupStatus();return true}catch(e){q('#saveError')?.classList.remove('hidden');return false}}
 function selectedAutoBackup(){const list=readAutoBackups(),index=Number(q('#backupSelect')?.value||0);return list[index]||list[0]||null}
 function renderBackupStatus(){const el=q('#backupStatus'),select=q('#backupSelect');if(!el)return;const list=readAutoBackups();if(select){const previous=select.value;select.innerHTML='';list.forEach((b,i)=>{const o=document.createElement('option');o.value=String(i);o.textContent=`${new Date(b.ts).toLocaleString('es-MX')} · ${b.reason}`;select.appendChild(o)});select.disabled=!list.length;select.value=list[Number(previous)]?previous:'0'}el.textContent=list.length?`${list.length} respaldo${list.length===1?'':'s'} automático${list.length===1?'':'s'} disponible${list.length===1?'':'s'}. Elige cuál restaurar.`:'Todavía no hay respaldo automático.'}
 function restoreAutoBackup(){const b=selectedAutoBackup();if(!b)return alert('Todavía no existe un respaldo automático.');if(!confirm(`¿Restaurar el respaldo de ${new Date(b.ts).toLocaleString('es-MX')}? El progreso actual será reemplazado.`))return;if(!saveAutoBackup('Antes de restaurar otro respaldo'))return alert('No se pudo crear el respaldo de seguridad. Exporta tus datos antes de restaurar.');const restored={...b.state,schemaVersion:15,simulation:{active:false,original:null},road:false,copilot:false};localStorage.setItem(KEY,JSON.stringify(restored));localStorage.setItem(MIRROR_KEY,JSON.stringify(restored));location.reload()}
@@ -416,7 +416,7 @@ const FULL_ROUTE_URLS={
   2:"https://www.google.com/maps/dir/Navojoa,+Sonora/26.3596275,-109.0173085/Mobil+Guasavito,+Carretera+Mochis-Culiac%C3%A1n+Km.+143%2B863,+Los+Mochis+-+Culiac%C3%A1n+s%2Fn,+81149+Callejones+de+Guasavito,+Sin./24.5805085,-107.4392658/Gasolinera+Santa+Luc%C3%ADa,+Carretera+Internacional+No.+15+tramo,+Autop.+Tepic+-+Mazatl%C3%A1n+Km.+279-0,+El+Castillo,+82150+Mazatl%C3%A1n,+Sin./Tepic,+Nayarit",
   3:"https://maps.app.goo.gl/m2FiiJWVae49fhmbA?g_st=ic"
 };
-let gpsWatchId=null,gpsRequestPending=false,gpsReturnTimer=null,gpsPermissionHandle=null,lastMapKey='',wakeLock=null,lastVoiceKey='',lastGpsSaveTs=0,gpsDirty=false;
+let gpsWatchId=null,gpsRequestPending=false,gpsReturnTimer=null,gpsPermissionHandle=null,lastMapKey='',wakeLock=null,lastVoiceKey='',lastGpsSaveTs=0,gpsDirty=false,gpsRetryTimer=null,gpsRetryCount=0,geofenceCandidate=null;
 function ensureGpsState(){
  if(!state.gps) state.gps={enabled:false,lat:null,lng:null,accuracy:null,lastTs:null,permission:'unknown',lastError:null};
  state.gps={permission:'unknown',lastError:null,...state.gps};
@@ -458,7 +458,20 @@ function registerArrival(i,source='manual'){
  if(i===pts().length-1){state.started=false;state.road=false;state.copilot=false;stopGpsWatch();releaseWakeLock()}
  save();if(i===pts().length-1)saveAutoBackup(`Día ${state.day} completado`);speakAlert(`Llegada registrada en ${name}.`,`arrival:${state.day}:${i}`);render();return true;
 }
-function checkGeofence(){if(!state.settings?.proximityEnabled||!state.started||state.paused||routeCompleted()||activeStop()>=0)return;const i=nextManual(),p=pts()[i],radius=Number(state.settings.proximityRadius)||350,distance=distanceToPoint(p,i),accuracy=Number(state.gps?.accuracy)||9999;if(i<0||distance===null||accuracy>Math.max(radius,200)||distance*1000>radius)return;const key=`${state.day}:${i}`,recent=state.gps.lastPromptKey===key&&Date.now()-Number(state.gps.lastPromptTs||0)<10*60*1000;if(recent)return;state.gps.lastPromptKey=key;state.gps.lastPromptTs=Date.now();save();speakAlert(`Estás cerca de ${p.name}. Confirma la llegada.`,`near:${key}`);const box=q('#arrivalPrompt');if(box){box.dataset.index=String(i);q('#arrivalPromptText').textContent=`Parece que llegaste a ${p.name} · aproximadamente ${Math.round(distance*1000)} m.`;box.classList.remove('hidden')}}
+function checkGeofence(){
+ if(!state.settings?.proximityEnabled||!state.started||state.paused||routeCompleted()||activeStop()>=0){geofenceCandidate=null;return}
+ const i=nextManual();if(i<0){geofenceCandidate=null;return}
+ const p=pts()[i],radius=Number(state.settings.proximityRadius)||350,distance=distanceToPoint(p,i),accuracy=Number(state.gps?.accuracy)||9999,key=`${state.day}:${i}`,now=Date.now();
+ // Reject stale/noisy readings. Require two good in-radius fixes separated by >=4 s.
+ if(distance===null||accuracy>Math.min(Math.max(radius,200),300)||distance*1000>radius){geofenceCandidate=null;return}
+ if(!geofenceCandidate||geofenceCandidate.key!==key||now-geofenceCandidate.lastTs>45000){geofenceCandidate={key,count:1,firstTs:now,lastTs:now};return}
+ if(now-geofenceCandidate.lastTs<4000)return;
+ geofenceCandidate.count+=1;geofenceCandidate.lastTs=now;
+ if(geofenceCandidate.count<2)return;
+ geofenceCandidate=null;
+ const recent=state.gps.lastPromptKey===key&&now-Number(state.gps.lastPromptTs||0)<10*60*1000;if(recent)return;
+ state.gps.lastPromptKey=key;state.gps.lastPromptTs=now;save();speakAlert(`Estás cerca de ${p.name}. Confirma la llegada.`,`near:${key}`);const box=q('#arrivalPrompt');if(box){box.dataset.index=String(i);q('#arrivalPromptText').textContent=`Parece que llegaste a ${p.name} · aproximadamente ${Math.round(distance*1000)} m. Confirma antes de registrar.`;box.classList.remove('hidden')}
+}
 function mapForAddress(address){
  const map=q('#gpsMap'),src=`https://www.google.com/maps?q=${encodeURIComponent(address)}&output=embed`,key=address;
  map.classList.remove('hidden');
@@ -488,31 +501,38 @@ function applyGpsPosition(pos){
  updateTelemetry(pos);
  gpsDirty=true;if(Date.now()-lastGpsSaveTs>=30000){save();lastGpsSaveTs=Date.now();gpsDirty=false}updateGps();setTimeout(checkGeofence,0);
 }
+function clearGpsRetry(){if(gpsRetryTimer!==null){clearTimeout(gpsRetryTimer);gpsRetryTimer=null}}
+function scheduleGpsRetry(){
+ clearGpsRetry();
+ if(!state.road||document.visibilityState==='hidden'||state.gps?.permission==='denied')return;
+ const delay=Math.min(60000,5000*Math.pow(2,Math.min(gpsRetryCount,3)));gpsRetryCount+=1;
+ gpsRetryTimer=setTimeout(()=>{gpsRetryTimer=null;if(!state.road||document.visibilityState==='hidden')return;stopGpsWatch(false);requestGps(true)},delay);
+}
 function handleGpsError(err,silent=false){
  ensureGpsState();
- if(err&&err.code===1){state.gps.enabled=false;state.gps.permission='denied'}
+ if(err&&err.code===1){state.gps.enabled=false;state.gps.permission='denied';clearGpsRetry()}
  if(silent&&err?.code!==1&&state.gps.lastTs)state.gps.lastError=null;
  else state.gps.lastError=gpsErrorMessage(err);
- save();
- updateGps();
+ save();updateGps();
 }
-function stopGpsWatch(){
+function stopGpsWatch(clearRetry=true){
  if(gpsWatchId!==null&&navigator.geolocation){navigator.geolocation.clearWatch(gpsWatchId)}
- gpsWatchId=null;
+ gpsWatchId=null;if(clearRetry)clearGpsRetry();
  if(gpsDirty){save();lastGpsSaveTs=Date.now();gpsDirty=false}
  updateGps();
 }
 function startGpsWatch(){
  ensureGpsState();
  if(!state.road||document.visibilityState==='hidden'||gpsWatchId!==null||!gpsSecureContext()||!navigator.geolocation)return;
+ clearGpsRetry();
  try{
    gpsWatchId=navigator.geolocation.watchPosition(
-     applyGpsPosition,
-     err=>{handleGpsError(err,true);if(err&&err.code===1)stopGpsWatch()},
+     pos=>{gpsRetryCount=0;clearGpsRetry();applyGpsPosition(pos)},
+     err=>{handleGpsError(err,true);if(err&&err.code===1)stopGpsWatch();else{stopGpsWatch(false);scheduleGpsRetry()}},
      {enableHighAccuracy:true,timeout:30000,maximumAge:15000}
    );
    updateGps();requestWakeLock();
- }catch(err){gpsWatchId=null;handleGpsError(err,false)}
+ }catch(err){gpsWatchId=null;handleGpsError(err,false);scheduleGpsRetry()}
 }
 async function inspectGpsPermission(){
  if(!navigator.permissions?.query)return;
@@ -579,10 +599,10 @@ function requestGps(silent=false){
  gpsRequestPending=true;state.gps.lastError=null;updateGps();
  navigator.geolocation.getCurrentPosition(
    pos=>{
-     gpsRequestPending=false;applyGpsPosition(pos);if(state.road)startGpsWatch();
+     gpsRequestPending=false;gpsRetryCount=0;clearGpsRetry();applyGpsPosition(pos);if(state.road)startGpsWatch();
    },
    err=>{
-     gpsRequestPending=false;handleGpsError(err,silent);
+     gpsRequestPending=false;handleGpsError(err,silent);if(state.road&&err?.code!==1)scheduleGpsRetry();
    },
    {enableHighAccuracy:true,timeout:20000,maximumAge:silent?30000:0}
  );
@@ -615,7 +635,7 @@ function refreshGpsOnReturn(){
  clearTimeout(gpsReturnTimer);
  gpsReturnTimer=setTimeout(()=>{
    ensureGpsState();
-   if(state.road&&state.gps.enabled){startGpsWatch();requestWakeLock()}
+   if(state.road){if(state.gps.enabled){startGpsWatch();requestWakeLock()}else if(state.gps.permission!=='denied')requestGps(true)}
    else if(state.gps.enabled)requestGps(true);
    else updateGps();
  },250);
@@ -723,7 +743,7 @@ q('#saveSettings').addEventListener('click',()=>{state.settings={...state.settin
 q('#copyGps').addEventListener('click',async()=>{const o=gpsOrigin(6,24*60*60*1000);if(!o)return alert('Actualiza primero la ubicación desde Modo carretera.');const text=`Mi ubicación: https://maps.google.com/?q=${o}`;try{await navigator.clipboard.writeText(text);alert('Ubicación copiada.')}catch(e){prompt('Copia esta ubicación',text)}});
 q('#shareGps').addEventListener('click',async()=>{const o=gpsOrigin(6,24*60*60*1000);if(!o)return alert('Actualiza primero la ubicación desde Modo carretera.');const text=`Mi ubicación actual: https://maps.google.com/?q=${o}${state.settings.vehicleInfo?` · Vehículo: ${state.settings.vehicleInfo}`:''}`;if(navigator.share){try{await navigator.share({title:'Mi ubicación de viaje',text})}catch(e){}}else{try{await navigator.clipboard.writeText(text);alert('Ubicación copiada.')}catch(e){prompt('Copia esta ubicación',text)}}});
 q('#safetyGpsRefresh').addEventListener('click',()=>requestGps(false));
-q('#exportData').addEventListener('click',()=>{const blob=new Blob([JSON.stringify({app:'Viaje Familiar',version:'5.0.5 OFICIAL',exportedAt:new Date().toISOString(),state:exportableState()},null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`viaje-familiar-respaldo-${new Date().toISOString().slice(0,10)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)});
+q('#exportData').addEventListener('click',()=>{const blob=new Blob([JSON.stringify({app:'Viaje Familiar',version:'5.0.6 OFICIAL',exportedAt:new Date().toISOString(),state:exportableState()},null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`viaje-familiar-respaldo-${new Date().toISOString().slice(0,10)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)});
 function validImportedState(x){return x&&typeof x==='object'&&[1,2,3].includes(Number(x.day||1))&&x.records&&typeof x.records==='object'&&x.checks&&typeof x.checks==='object'&&x.fuel&&typeof x.fuel==='object'&&Number.isFinite(Number(x.fuel.percent))&&Number.isFinite(Number(x.fuel.kmPerL))&&(!x.breaks||typeof x.breaks==='object')&&(!x.expenses||Array.isArray(x.expenses))}
 q('#importData').addEventListener('click',()=>q('#importFile').click());q('#importFile').addEventListener('change',async e=>{const file=e.target.files?.[0];if(!file)return;try{if(file.size>5*1024*1024)throw new Error('Archivo demasiado grande');const data=JSON.parse(await file.text()),incoming=data.state||data;if(!validImportedState(incoming))throw new Error('Formato inválido');if(!confirm('¿Reemplazar los datos actuales por este respaldo?'))return;if(!saveAutoBackup('Antes de importar un respaldo')&&!confirm('No se pudo crear un respaldo de seguridad. ¿Continuar de todos modos?'))return;const restored={...incoming,schemaVersion:15,simulation:{active:false,original:null},road:false,copilot:false,paused:false,pauseTs:null};localStorage.setItem(KEY,JSON.stringify(restored));localStorage.setItem(MIRROR_KEY,JSON.stringify(restored));location.reload()}catch(err){alert('No se pudo importar: el archivo no es un respaldo válido.')}finally{e.target.value=''}});
 
@@ -748,7 +768,7 @@ q('#confirmGpsArrival')?.addEventListener('click',()=>{const box=q('#arrivalProm
 q('#dismissGpsArrival')?.addEventListener('click',()=>q('#arrivalPrompt')?.classList.add('hidden'));
 window.addEventListener('pagehide',()=>{if(!state.simulation?.active)save()});document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'&&!state.simulation?.active)save()});
 if(state.road&&state.gps.enabled)setTimeout(()=>{startGpsWatch();requestWakeLock()},250);
-if('serviceWorker' in navigator){navigator.serviceWorker.register('./service-worker.js?v=4.4.0',{updateViaCache:'none'}).then(reg=>reg.update().catch(()=>{})).catch(()=>{})}
+if('serviceWorker' in navigator){navigator.serviceWorker.register('./service-worker.js?v=5.0.6',{updateViaCache:'none'}).then(reg=>reg.update().catch(()=>{})).catch(()=>{})}
 
 /* ===== v4.4 enhancements ===== */
 const HISTORY_KEY=KEY+'_trip_history_v44';
