@@ -940,3 +940,32 @@ q('#onboardingDone')?.addEventListener('click',()=>{state.meta.onboardingDone=tr
 window.addEventListener('error',e=>{try{ensureV50State();state.errorLog.unshift({ts:Date.now(),msg:String(e.message||'Error'),src:String(e.filename||'').slice(-80),line:e.lineno||0});state.errorLog=state.errorLog.slice(0,20);save()}catch(_){}});
 const _renderV50base=render;render=function(){_renderV50base();renderV50()};
 render();save();
+
+
+// v6.0.1 UI refinement: pre-trip assistant + internal road-mode lock presentation.
+function applyPreTripUiRefinements(){
+  try{
+    const text = (document.body.innerText || "");
+    const notStarted = /No iniciado/i.test(text) && /Iniciar día/i.test(text);
+    if(!notStarted) return;
+
+    // Hide scenario buttons until the day actually starts.
+    document.querySelectorAll("button").forEach(btn=>{
+      const t=(btn.textContent||"").trim();
+      if(t==="¿Puedo continuar?" || t==="+30 min" || t==="+1 h"){
+        btn.classList.add("v601-pretrip-hidden");
+      }
+      if(t==="Modo carretera"){
+        btn.classList.add("v601-road-locked");
+        btn.setAttribute("aria-disabled","true");
+        if(!btn.textContent.includes("🔒")) btn.textContent="🔒 Modo carretera";
+      }
+    });
+  }catch(e){}
+}
+const _v601Observer = new MutationObserver(()=>applyPreTripUiRefinements());
+document.addEventListener("DOMContentLoaded",()=>{
+  applyPreTripUiRefinements();
+  _v601Observer.observe(document.body,{childList:true,subtree:true});
+});
+

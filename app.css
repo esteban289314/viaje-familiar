@@ -103,3 +103,13 @@ body.roadMode .roadGpsLive{margin:10px 0 12px;padding:9px 10px;border:1px solid 
 @media(max-width:520px){.homeFold>summary{padding:14px 12px}.homeFold .foldBody{padding:0 10px 10px}}
 
 .stopName,.stopMeta{display:block}.stopMeta{line-height:1.35}.stopHead>span:nth-child(2){min-width:0}.stopHead .right{white-space:nowrap}
+
+
+/* v6.0.1: cleaner pre-trip state */
+.v601-pretrip-hidden{display:none!important}
+.v601-road-locked{
+  opacity:.48!important;
+  filter:saturate(.45);
+  cursor:not-allowed!important;
+}
+
