@@ -1,10 +1,10 @@
 {
   "id": "./",
-  "name": "Viaje Familiar v5.0.9",
+  "name": "Viaje Familiar v5.0.10",
   "short_name": "Viaje",
   "description": "Asistente resiliente y offline para viaje familiar por carretera.",
   "lang": "es-MX",
-  "start_url": "./index.html?v=5.0.9",
+  "start_url": "./index.html?v=5.0.10",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait-primary",
