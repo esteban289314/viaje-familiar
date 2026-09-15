@@ -84,3 +84,6 @@ body.roadMode .roadMore>summary::-webkit-details-marker{display:none}
 body.roadMode .roadMoreBody{padding:0 10px 10px}
 body.roadMode #roadExit{min-height:52px;margin-top:12px!important}
 @media(max-width:520px){body.roadMode #roadPoint{font-size:2rem}body.roadMode .roadNavPrimary{min-height:74px}body.roadMode .roadBtns button{min-height:74px!important}}
+
+/* v5.0.5 GPS en vivo */
+body.roadMode .roadGpsLive{margin:10px 0 12px;padding:9px 10px;border:1px solid var(--border);border-radius:12px;background:#10151b}body.roadMode .roadGpsLive .gpsLive{margin-top:0;font-weight:800}body.roadMode .roadGpsLive .gpsMetric{font-size:.84rem;margin:7px 2px 0;color:#d7dde8}
