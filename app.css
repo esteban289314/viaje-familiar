@@ -87,3 +87,9 @@ body.roadMode #roadExit{min-height:52px;margin-top:12px!important}
 
 /* v5.0.5 GPS en vivo */
 body.roadMode .roadGpsLive{margin:10px 0 12px;padding:9px 10px;border:1px solid var(--border);border-radius:12px;background:#10151b}body.roadMode .roadGpsLive .gpsLive{margin-top:0;font-weight:800}body.roadMode .roadGpsLive .gpsMetric{font-size:.84rem;margin:7px 2px 0;color:#d7dde8}
+
+/* v5.0.9 · mapa GPS en vivo compacto */
+.liveRoadMapWrap{position:relative;margin-top:12px;border:1px solid var(--border);border-radius:15px;overflow:hidden;background:#0c1015}.liveRoadMap{margin:0;border-radius:0;height:230px;display:block}.liveRoadMapBadge{position:absolute;left:9px;right:9px;bottom:9px;padding:8px 10px;border-radius:11px;background:rgba(11,13,17,.88);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.15);display:flex;gap:8px;align-items:center;justify-content:space-between;font-size:.76rem}.liveRoadMapBadge b{font-size:.86rem;text-align:right;max-width:65%}.liveMapNote{margin:6px 2px 0}.roadNavPrimary{margin-top:10px;width:100%;min-height:62px;font-size:1.08rem}
+
+/* v5.0.9 robustez final */
+.resumeTripBanner{position:sticky;top:58px;z-index:18;margin:8px 0;padding:10px;border:1px solid #2f7d4c;border-radius:12px;background:#10251a;display:flex;gap:10px;align-items:center;justify-content:space-between}.resumeTripBanner .btn{min-width:145px}.liveRoadMapWrap{position:relative}.mapOfflineCover{position:absolute;inset:0;z-index:4;border-radius:12px;background:rgba(10,14,18,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:7px;padding:18px}.mapOfflineCover b{font-size:1.05rem}.mapOfflineCover span{font-size:.9rem;color:var(--muted)}.gpsLive.stale{border-color:#b98024;background:#2a2112;color:#ffd27a}.roadMode .resumeTripBanner{display:none!important}@media(max-width:520px){.resumeTripBanner{align-items:stretch;flex-direction:column}.resumeTripBanner .btn{width:100%}}

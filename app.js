@@ -80,7 +80,7 @@ const BACKUP_KEY=KEY+'_automatic',MAX_BACKUPS=12;
 function cleanStateCopy(source=state){const copy=JSON.parse(JSON.stringify(source));copy.simulation={active:false,original:null};copy.copilot=false;copy.road=false;return copy}
 function exportableState(){return state.simulation?.active&&state.simulation?.original?cleanStateCopy(state.simulation.original):cleanStateCopy()}
 function readAutoBackups(){try{const raw=JSON.parse(localStorage.getItem(BACKUP_KEY));const list=Array.isArray(raw)?raw:(raw?.state?[raw]:[]);return list.filter(b=>b?.state&&Number.isFinite(Number(b.ts))).sort((a,b)=>b.ts-a.ts).slice(0,MAX_BACKUPS)}catch(e){return []}}
-function saveAutoBackup(reason,source=state){if(state.simulation?.active&&source===state)return false;try{const list=readAutoBackups();list.unshift({version:'5.0.6 OFICIAL',reason:String(reason||'Respaldo').slice(0,160),ts:Date.now(),state:cleanStateCopy(source)});localStorage.setItem(BACKUP_KEY,JSON.stringify(list.slice(0,MAX_BACKUPS)));renderBackupStatus();return true}catch(e){q('#saveError')?.classList.remove('hidden');return false}}
+function saveAutoBackup(reason,source=state){if(state.simulation?.active&&source===state)return false;try{const list=readAutoBackups();list.unshift({version:'5.0.9 OFICIAL',reason:String(reason||'Respaldo').slice(0,160),ts:Date.now(),state:cleanStateCopy(source)});localStorage.setItem(BACKUP_KEY,JSON.stringify(list.slice(0,MAX_BACKUPS)));renderBackupStatus();return true}catch(e){q('#saveError')?.classList.remove('hidden');return false}}
 function selectedAutoBackup(){const list=readAutoBackups(),index=Number(q('#backupSelect')?.value||0);return list[index]||list[0]||null}
 function renderBackupStatus(){const el=q('#backupStatus'),select=q('#backupSelect');if(!el)return;const list=readAutoBackups();if(select){const previous=select.value;select.innerHTML='';list.forEach((b,i)=>{const o=document.createElement('option');o.value=String(i);o.textContent=`${new Date(b.ts).toLocaleString('es-MX')} · ${b.reason}`;select.appendChild(o)});select.disabled=!list.length;select.value=list[Number(previous)]?previous:'0'}el.textContent=list.length?`${list.length} respaldo${list.length===1?'':'s'} automático${list.length===1?'':'s'} disponible${list.length===1?'':'s'}. Elige cuál restaurar.`:'Todavía no hay respaldo automático.'}
 function restoreAutoBackup(){const b=selectedAutoBackup();if(!b)return alert('Todavía no existe un respaldo automático.');if(!confirm(`¿Restaurar el respaldo de ${new Date(b.ts).toLocaleString('es-MX')}? El progreso actual será reemplazado.`))return;if(!saveAutoBackup('Antes de restaurar otro respaldo'))return alert('No se pudo crear el respaldo de seguridad. Exporta tus datos antes de restaurar.');const restored={...b.state,schemaVersion:15,simulation:{active:false,original:null},road:false,copilot:false};localStorage.setItem(KEY,JSON.stringify(restored));localStorage.setItem(MIRROR_KEY,JSON.stringify(restored));location.reload()}
@@ -416,7 +416,7 @@ const FULL_ROUTE_URLS={
   2:"https://www.google.com/maps/dir/Navojoa,+Sonora/26.3596275,-109.0173085/Mobil+Guasavito,+Carretera+Mochis-Culiac%C3%A1n+Km.+143%2B863,+Los+Mochis+-+Culiac%C3%A1n+s%2Fn,+81149+Callejones+de+Guasavito,+Sin./24.5805085,-107.4392658/Gasolinera+Santa+Luc%C3%ADa,+Carretera+Internacional+No.+15+tramo,+Autop.+Tepic+-+Mazatl%C3%A1n+Km.+279-0,+El+Castillo,+82150+Mazatl%C3%A1n,+Sin./Tepic,+Nayarit",
   3:"https://maps.app.goo.gl/m2FiiJWVae49fhmbA?g_st=ic"
 };
-let gpsWatchId=null,gpsRequestPending=false,gpsReturnTimer=null,gpsPermissionHandle=null,lastMapKey='',wakeLock=null,lastVoiceKey='',lastGpsSaveTs=0,gpsDirty=false,gpsRetryTimer=null,gpsRetryCount=0,geofenceCandidate=null;
+let gpsWatchId=null,gpsRequestPending=false,gpsReturnTimer=null,gpsPermissionHandle=null,lastMapKey='',wakeLock=null,lastVoiceKey='',lastGpsSaveTs=0,gpsDirty=false,gpsRetryTimer=null,gpsRetryCount=0,geofenceCandidate=null,lastGpsDistanceKey='',gpsDistanceSamples=[];
 function ensureGpsState(){
  if(!state.gps) state.gps={enabled:false,lat:null,lng:null,accuracy:null,lastTs:null,permission:'unknown',lastError:null};
  state.gps={permission:'unknown',lastError:null,...state.gps};
@@ -472,10 +472,22 @@ function checkGeofence(){
  const recent=state.gps.lastPromptKey===key&&now-Number(state.gps.lastPromptTs||0)<10*60*1000;if(recent)return;
  state.gps.lastPromptKey=key;state.gps.lastPromptTs=now;save();speakAlert(`Estás cerca de ${p.name}. Confirma la llegada.`,`near:${key}`);const box=q('#arrivalPrompt');if(box){box.dataset.index=String(i);q('#arrivalPromptText').textContent=`Parece que llegaste a ${p.name} · aproximadamente ${Math.round(distance*1000)} m. Confirma antes de registrar.`;box.classList.remove('hidden')}
 }
+let lastLiveMapTs=0,lastLiveMapLat=null,lastLiveMapLng=null;
 function mapForAddress(address){
  const map=q('#gpsMap'),src=`https://www.google.com/maps?q=${encodeURIComponent(address)}&output=embed`,key=address;
  map.classList.remove('hidden');
  if(lastMapKey!==key){lastMapKey=key;map.src=src}
+}
+function mapForLivePosition(){
+ const map=q('#gpsMap');if(!map||!state.road||!state.gps?.lastTs||!Number.isFinite(Number(state.gps.lat))||!Number.isFinite(Number(state.gps.lng)))return false;
+ const lat=Number(state.gps.lat),lng=Number(state.gps.lng),now=Date.now(),moved=lastLiveMapLat===null?999:haversineKm(lastLiveMapLat,lastLiveMapLng,lat,lng);
+ // Evita recargar el mapa con cada lectura: actualiza al mover ~100 m o cada 30 s.
+ if(!map.src||moved>=0.10||now-lastLiveMapTs>=30000){
+   const key=`live:${lat.toFixed(3)},${lng.toFixed(3)}`,src=`https://www.google.com/maps?q=${lat.toFixed(6)},${lng.toFixed(6)}&z=15&output=embed`;
+   if(lastMapKey!==key||now-lastLiveMapTs>=30000){lastMapKey=key;map.src=src}
+   lastLiveMapLat=lat;lastLiveMapLng=lng;lastLiveMapTs=now;
+ }
+ map.classList.remove('hidden');return true;
 }
 function gpsSecureContext(){
  const local=['localhost','127.0.0.1','::1'].includes(location.hostname);
@@ -491,13 +503,16 @@ function gpsErrorMessage(err){
 function applyGpsPosition(pos){
  if(!pos||!pos.coords)return;
  ensureGpsState();
- state.gps.enabled=true;
- state.gps.permission='granted';
- state.gps.lat=Number(pos.coords.latitude);
- state.gps.lng=Number(pos.coords.longitude);
- state.gps.accuracy=Number(pos.coords.accuracy)||0;
- state.gps.lastTs=Number(pos.timestamp)||Date.now();
- state.gps.lastError=null;
+ const lat=Number(pos.coords.latitude),lng=Number(pos.coords.longitude),accuracy=Number(pos.coords.accuracy)||9999,ts=Number(pos.timestamp)||Date.now();
+ if(!Number.isFinite(lat)||!Number.isFinite(lng)||accuracy>1500)return;
+ // Filtro anti-saltos: descarta brincos físicamente imposibles cuando la lectura nueva no mejora la precisión.
+ if(Number.isFinite(state.gps.lat)&&Number.isFinite(state.gps.lng)&&state.gps.lastTs){
+   const dt=ts-Number(state.gps.lastTs),jump=haversineKm(state.gps.lat,state.gps.lng,lat,lng),jumpKmh=dt>0?jump/(dt/3600000):0;
+   if(dt>1000&&dt<30000&&jumpKmh>220&&accuracy>=Number(state.gps.accuracy||9999)){state.gps.rejectedFixes=Number(state.gps.rejectedFixes||0)+1;return}
+ }
+ state.gps.enabled=true;state.gps.permission='granted';state.gps.lat=lat;state.gps.lng=lng;state.gps.accuracy=accuracy;state.gps.lastTs=ts;
+ const rawSpeed=Number(pos.coords.speed);state.gps.speedKmh=Number.isFinite(rawSpeed)&&rawSpeed>=0?Math.min(220,rawSpeed*3.6):null;
+ state.gps.heading=Number.isFinite(Number(pos.coords.heading))?Number(pos.coords.heading):null;state.gps.lastError=null;
  updateTelemetry(pos);
  gpsDirty=true;if(Date.now()-lastGpsSaveTs>=30000){save();lastGpsSaveTs=Date.now();gpsDirty=false}updateGps();setTimeout(checkGeofence,0);
 }
@@ -546,10 +561,23 @@ async function inspectGpsPermission(){
    };
  }catch(e){}
 }
+function gpsQuality(){
+ ensureGpsState();const age=Date.now()-Number(state.gps.lastTs||0),a=Number(state.gps.accuracy||9999);
+ if(!state.gps.lastTs||age>120000||a>250)return {level:'bad',icon:'🔴',label:'GPS PERDIDO'};
+ if(age>45000)return {level:'stale',icon:'🟡',label:'GPS SIN ACTUALIZAR'};
+ if(a<=30&&age<=30000)return {level:'good',icon:'🟢',label:'GPS PRECISO'};
+ return {level:'warn',icon:'🟡',label:'GPS DÉBIL'};
+}
+function smoothedDistanceToPoint(p,i){
+ const d=distanceToPoint(p,i),key=`${state.day}:${i}`;if(d===null)return null;
+ if(lastGpsDistanceKey!==key){lastGpsDistanceKey=key;gpsDistanceSamples=[]}
+ gpsDistanceSamples.push(d);gpsDistanceSamples=gpsDistanceSamples.slice(-5);
+ const a=[...gpsDistanceSamples].sort((x,y)=>x-y);return a[Math.floor(a.length/2)];
+}
 function updateGps(){
  ensureGpsState();
  const {i,p}=gpsData(),map=q('#gpsMap'),st=q('#gpsStatus'),nav=q('#navBtn'),live=q('#gpsLive'),segment=segmentInfo();
- q('#segmentStatus').textContent=segment.label;q('#fullRouteBtn').textContent=segment.button;
+ q('#segmentStatus').textContent=segment.label;q('#fullRouteBtn').textContent=segment.button;const mapDest=q('#liveMapDestination');if(mapDest)mapDest.textContent=p?.name||'—';
  const sync=latestEtaSyncFor(i);q('#etaSyncNote').textContent=sync?`ETA de Maps sincronizada a ${clock(sync.etaTs,p.targetTimezone||route().timezone)} · el resto del día fue recalculado`:'Sin sincronización reciente · usando horario de la app';
  q('#etaSyncBtn').disabled=!state.started||state.paused||routeCompleted()||activeStop()>=0;
  live.setAttribute('aria-busy',gpsRequestPending?'true':'false');
@@ -563,33 +591,38 @@ function updateGps(){
  }else if(state.gps.lastError){
    live.className='gpsLive bad';live.textContent=state.gps.lastError;
  }else if(state.gps.enabled&&state.gps.lastTs){
-   const ageMs=Math.max(0,Date.now()-state.gps.lastTs),age=Math.round(ageMs/60000),accuracy=Math.round(state.gps.accuracy||0),bad=ageMs>5*60*1000||accuracy>500,warn=ageMs>2*60*1000||accuracy>100;
-   live.className=`gpsLive ${bad?'bad':warn?'warn':'good'}`;
-   const mode=gpsWatchId!==null?'GPS EN VIVO':'ubicación lista';
-   live.textContent=`${bad?'🔴':warn?'🟡':'🟢'} ${mode} · precisión aprox. ${accuracy} m · ${age<1?'actualizada ahora':`hace ${age} min`}`;
+   const ageMs=Math.max(0,Date.now()-state.gps.lastTs),accuracy=Math.round(state.gps.accuracy||0),quality=gpsQuality(),speed=Number(state.gps.speedKmh);
+   live.className=`gpsLive ${quality.level}`;
+   const liveMode=gpsWatchId!==null?' · EN VIVO':'';
+   const speedText=Number.isFinite(speed)&&speed>=2?` · ${Math.round(speed)} km/h`:'';
+   live.textContent=`${quality.icon} ${quality.label}${liveMode} · ±${accuracy} m${speedText}`;
  }else{
    live.className='gpsLive warn';
    live.textContent='📍 Ubicación pendiente. Pulsa “Actualizar ubicación” y acepta el permiso.';
  }
- const coords=pointCoordinates(p,i),distance=distanceToPoint(p,i),distanceBox=q('#gpsDistance');
+ const coords=pointCoordinates(p,i),distance=smoothedDistanceToPoint(p,i),distanceBox=q('#gpsDistance');
  distanceBox.textContent=distance===null?(coords?'Distancia en vivo: esperando GPS':'Destino sin coordenada exacta'):(distance<1?`📍 A ~${Math.round(distance*1000)} m del siguiente punto`:`📍 A ~${distance.toFixed(1)} km del siguiente punto`);
  q('#savePointLocation').disabled=!state.gps.enabled||Date.now()-Number(state.gps.lastTs||0)>5*60000||Number(state.gps.accuracy||9999)>100;
- if(coords){st.textContent=`${coords.userSaved?'Ubicación guardada por ti':'Coordenada verificada'}: ${p.name}`;nav.disabled=false;mapForAddress(`${coords.lat},${coords.lng}`);return}
+ const liveMap=mapForLivePosition();
+ const offlineCover=q('#mapOfflineCover');if(offlineCover)offlineCover.classList.toggle('hidden',navigator.onLine);
+ if(!navigator.onLine&&map){map.classList.add('offlineMapDim')}
+ else if(map){map.classList.remove('offlineMapDim')}
+ if(coords){st.textContent=`${coords.userSaved?'Ubicación guardada por ti':'Coordenada verificada'}: ${p.name}`;nav.disabled=false;if(!liveMap)mapForAddress(`${coords.lat},${coords.lng}`);return}
  if(p.nav==='external'){
    st.textContent=`Enlace de Maps aprobado: ${p.name}`;
    nav.disabled=false;
-   map.classList.add('hidden'); map.removeAttribute('src');lastMapKey='';
+   if(!liveMap){map.classList.add('hidden');map.removeAttribute('src');lastMapKey=''}
    return;
  }
  if(p.nav==='address'){
    st.textContent=`Destino exacto: ${p.name}`;
    nav.disabled=false;
-   mapForAddress(p.address);
+   if(!liveMap)mapForAddress(p.address);
    return;
  }
  st.textContent=`Referencia de ruta: ${p.name} · usa “Ruta completa” para respetar el corredor`;
  nav.disabled=true;
- map.classList.add('hidden'); map.removeAttribute('src');lastMapKey='';
+ if(!liveMap){map.classList.add('hidden');map.removeAttribute('src');lastMapKey=''}
 }
 function requestGps(silent=false){
  ensureGpsState();
@@ -743,7 +776,7 @@ q('#saveSettings').addEventListener('click',()=>{state.settings={...state.settin
 q('#copyGps').addEventListener('click',async()=>{const o=gpsOrigin(6,24*60*60*1000);if(!o)return alert('Actualiza primero la ubicación desde Modo carretera.');const text=`Mi ubicación: https://maps.google.com/?q=${o}`;try{await navigator.clipboard.writeText(text);alert('Ubicación copiada.')}catch(e){prompt('Copia esta ubicación',text)}});
 q('#shareGps').addEventListener('click',async()=>{const o=gpsOrigin(6,24*60*60*1000);if(!o)return alert('Actualiza primero la ubicación desde Modo carretera.');const text=`Mi ubicación actual: https://maps.google.com/?q=${o}${state.settings.vehicleInfo?` · Vehículo: ${state.settings.vehicleInfo}`:''}`;if(navigator.share){try{await navigator.share({title:'Mi ubicación de viaje',text})}catch(e){}}else{try{await navigator.clipboard.writeText(text);alert('Ubicación copiada.')}catch(e){prompt('Copia esta ubicación',text)}}});
 q('#safetyGpsRefresh').addEventListener('click',()=>requestGps(false));
-q('#exportData').addEventListener('click',()=>{const blob=new Blob([JSON.stringify({app:'Viaje Familiar',version:'5.0.6 OFICIAL',exportedAt:new Date().toISOString(),state:exportableState()},null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`viaje-familiar-respaldo-${new Date().toISOString().slice(0,10)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)});
+q('#exportData').addEventListener('click',()=>{const blob=new Blob([JSON.stringify({app:'Viaje Familiar',version:'5.0.9 OFICIAL',exportedAt:new Date().toISOString(),state:exportableState()},null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`viaje-familiar-respaldo-${new Date().toISOString().slice(0,10)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)});
 function validImportedState(x){return x&&typeof x==='object'&&[1,2,3].includes(Number(x.day||1))&&x.records&&typeof x.records==='object'&&x.checks&&typeof x.checks==='object'&&x.fuel&&typeof x.fuel==='object'&&Number.isFinite(Number(x.fuel.percent))&&Number.isFinite(Number(x.fuel.kmPerL))&&(!x.breaks||typeof x.breaks==='object')&&(!x.expenses||Array.isArray(x.expenses))}
 q('#importData').addEventListener('click',()=>q('#importFile').click());q('#importFile').addEventListener('change',async e=>{const file=e.target.files?.[0];if(!file)return;try{if(file.size>5*1024*1024)throw new Error('Archivo demasiado grande');const data=JSON.parse(await file.text()),incoming=data.state||data;if(!validImportedState(incoming))throw new Error('Formato inválido');if(!confirm('¿Reemplazar los datos actuales por este respaldo?'))return;if(!saveAutoBackup('Antes de importar un respaldo')&&!confirm('No se pudo crear un respaldo de seguridad. ¿Continuar de todos modos?'))return;const restored={...incoming,schemaVersion:15,simulation:{active:false,original:null},road:false,copilot:false,paused:false,pauseTs:null};localStorage.setItem(KEY,JSON.stringify(restored));localStorage.setItem(MIRROR_KEY,JSON.stringify(restored));location.reload()}catch(err){alert('No se pudo importar: el archivo no es un respaldo válido.')}finally{e.target.value=''}});
 
@@ -768,7 +801,7 @@ q('#confirmGpsArrival')?.addEventListener('click',()=>{const box=q('#arrivalProm
 q('#dismissGpsArrival')?.addEventListener('click',()=>q('#arrivalPrompt')?.classList.add('hidden'));
 window.addEventListener('pagehide',()=>{if(!state.simulation?.active)save()});document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'&&!state.simulation?.active)save()});
 if(state.road&&state.gps.enabled)setTimeout(()=>{startGpsWatch();requestWakeLock()},250);
-if('serviceWorker' in navigator){navigator.serviceWorker.register('./service-worker.js?v=5.0.6',{updateViaCache:'none'}).then(reg=>reg.update().catch(()=>{})).catch(()=>{})}
+if('serviceWorker' in navigator){navigator.serviceWorker.register('./service-worker.js?v=5.0.9',{updateViaCache:'none'}).then(reg=>reg.update().catch(()=>{})).catch(()=>{})}
 
 /* ===== v4.4 enhancements ===== */
 const HISTORY_KEY=KEY+'_trip_history_v44';
@@ -810,7 +843,9 @@ function currentStopName(){return pts()[nextRoadIndex()]?.name||'Parada'}
 function shareText(){const i=nextRoadIndex(),p=pts()[i],eta=state.started&&!routeCompleted()?etaClock(i):'—',gps=gpsOrigin(6,24*60*60*1000),spent=totalExpenses();return `Viaje familiar · Día ${state.day}\nSiguiente: ${p?.name||'—'}\nETA: ${eta}\nCombustible: ${Math.round(state.fuel.percent)}%\nGasto acumulado: ${money(spent)}${gps?`\nUbicación: https://maps.google.com/?q=${gps}`:''}`}
 function renderV44(){
  ensureV44State();
- const online=navigator.onLine,cb=q('#connectionBadge');if(cb){cb.className=`connectionBadge ${online?'online':'offline'}`;cb.textContent=online?'● En línea':'● Sin señal'}
+ const online=navigator.onLine,cb=q('#connectionBadge');if(cb){cb.className=`connectionBadge ${online?'online':'offline'}`;cb.textContent=online?'● En línea':'● Sin señal · viaje disponible'}
+ const mapCover=q('#mapOfflineCover');if(mapCover)mapCover.classList.toggle('hidden',online);
+ const resumeBanner=q('#resumeTripBanner');if(resumeBanner){const canResume=Boolean(state.started&&!state.paused&&!routeCompleted()&&!state.road);resumeBanner.classList.toggle('hidden',!canResume)}
  document.body.classList.toggle('forceDark',state.settings.autoDark!==false&&matchMedia?.('(prefers-color-scheme: dark)')?.matches);
  q('#app')?.classList.toggle('driveLocked',Boolean(state.road&&state.settings.driveLock));
  const t=state.telemetry,avg=avgTelemetrySpeed();
@@ -844,7 +879,10 @@ q('#duplicateTrip')?.addEventListener('click',()=>{if(confirm('¿Guardar el esta
 q('#saveMaintenance')?.addEventListener('click',()=>{state.maintenance={startOdo:Number(q('#maintStartOdo')?.value)||null,nextService:Number(q('#maintNextService')?.value)||null,notes:(q('#maintNotes')?.value||'').trim().slice(0,800)};save();render();alert('Estado del vehículo guardado.')});
 q('#exportTripReport')?.addEventListener('click',()=>downloadText(`resumen-viaje-${new Date().toISOString().slice(0,10)}.txt`,tripComparisonText()+'\n\n'+(state.travelLog||[]).map(e=>`${new Date(e.ts).toLocaleString('es-MX')} · ${e.text}`).join('\n')));
 q('#copyTripCompare')?.addEventListener('click',()=>shareOrCopy(tripComparisonText(),'Resumen del viaje'));
-window.addEventListener('online',renderV44);window.addEventListener('offline',renderV44);
+q('#resumeRoadTrip')?.addEventListener('click',()=>{if(!state.started||state.paused||routeCompleted())return;state.activeTab='route';state.road=true;save();render();requestWakeLock();if(state.gps?.enabled)startGpsWatch();else requestGps(false)});
+// Refresca el estado de antigüedad del GPS aunque no llegue una nueva lectura.
+setInterval(()=>{if(state.road&&state.gps?.lastTs)updateGps()},15000);
+window.addEventListener('online',()=>{renderV44();if(state.road)updateGps()});window.addEventListener('offline',()=>{renderV44();if(state.road)updateGps()});
 
 // ===== v5.0: auditoría anti-duplicados y capa de resiliencia =====
 function ensureV50State(){
